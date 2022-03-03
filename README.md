@@ -6,13 +6,14 @@ The Arrow ecosystem provides many ways to convert between Arrow and other popula
 
 ## Design
 
-Types that implements the `ArrowField`, `ArrowSerialize` and `ArrowDeserialize` traits can be converted to/from Arrow via the `try_into_arrow` and the `try_into_collection` methods. 
+Types that implement the `ArrowField`, `ArrowSerialize` and `ArrowDeserialize` traits can be converted to/from Arrow via the `try_into_arrow` and the `try_into_collection` methods. 
 
 The `ArrowField` implementation for a type defines the Arrow schema. The `ArrowSerialize` and `ArrowDeserialize` implementations provide the conversion logic via arrow2's data structures.
 
 ## Features
 
-- A derive macro, `ArrowField`, can generate implementations of the above traits for structures. Support for enums is in progress. 
+- A [derive macro](#derive-macro) called `ArrowField` that generates implementations of the above traits for structs and enums.
+    - Unit variants in enums are represented as `bool`.
 - Implementations are provided for Arrow primitives
     - Numeric types
         - [`u8`], [`u16`], [`u32`], [`u64`], [`i8`], [`i16`], [`i32`], [`i64`], [`f32`], [`f64`]
@@ -23,13 +24,35 @@ The `ArrowField` implementation for a type defines the Arrow schema. The `ArrowS
 - Blanket implementations are provided for types that implement the above traits:
     - Option<T>
     - Vec<T>
-- Large Arrow types [`LargeBinary`], [`LargeString`], [`LargeList`] are supported via the `override` attribute. Please see the [complex_example.rs](./arrow2_convert/tests/complex_example.rs) for usage.
+- Large Arrow types [`LargeBinary`], [`LargeString`], [`LargeList`] are supported via the `type` attribute. Please see the [complex_example.rs](./arrow2_convert/tests/complex_example.rs) for usage.
 - Fixed size types [`FixedSizeBinary`], [`FixedSizeList`] are supported via the `FixedSizeVec` type override.
     - Note: nesting of [`FixedSizeList`] is not supported.
+
+### Missing Features
+
 - Scalars and enums are in progress
 - Support for generics, slices and reference is currently missing.
 
 This is not an exhaustive list. Please open an issue if you need a feature.
+
+## Derive Macro
+
+The `ArrowField` derive macro generates the `ArrowField`, `ArrowSerialize`, and `ArrowDeserialize` for structs and enums.
+
+For serialization, the macro implements the `ArrowSerialize` trait by generating a custom `arrow2::array::MutableArray`, which can be used to collect elements and converted to a `arrow2::array::StructArray` or `arrow2::array::UnionArray` for consumption by the rest of the Arrow ecosystem.
+
+For deserialization the macro implements the `ArrowDeserialize` trait by generating a custom iterator for `arrow2::array::StructArray` or `arrow2::array::UnionArray`.
+
+The behavior of the macro is controlled by the [`type` attribute](#derive-macro-attributes). This attribute is required for enums to specify the Arrow Union type ("sparse" or "dense").
+
+### Derive Macro Attributes
+
+The macro currently supports one attribute called `type`, which can be specified via the `arrow2_field` invocation. The attribute in general is used to drive the `ArrowField`, `ArrowSerialize`, and `ArrowDeserialize` implementations that are used.
+
+When used on an enum container, the `type` attribute controls the Arrow union type: "sparse" or "dense". Please see [test_enum.rs](./arrow2_convert/tests/test_enum.rs) for an example of this.
+
+When used on a field or variant, the `type` attribute overrides the default implementations that are inferred from the field or variant type. This can be used for example to redirect to Large arrow types such as `LargeString` or to custom implementations of the traits. Please see the [complex_example.rs](./arrow2_convert/tests/complex_example.rs) for examples of this.
+
 
 ## Memory
 
